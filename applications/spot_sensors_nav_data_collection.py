@@ -13,8 +13,8 @@ from pathlib import Path
 
 import omni.appwindow
 from isaacsim.core.api import World
-from isaacsim.core.prims import XFormPrim
 from isaacsim.core.utils.prims import define_prim
+from isaacsim.core.utils.types import ArticulationAction
 from isaacsim.core.utils.rotations import quat_to_rot_matrix
 from isaacsim.storage.native import get_assets_root_path
 
@@ -207,7 +207,7 @@ class SpotGaitDataCollector:
             orientation=self._spawn_quat.copy(),
         )
         self._bridge = ContactSensorBridge("/World/Spot")
-        self._foot_prims = None
+        self._foot_prim_paths: list = []   # USD paths for foot links
 
         # Navigation state
         self._base_cmd     = np.zeros(3)
@@ -247,6 +247,8 @@ class SpotGaitDataCollector:
 
         self.first_step = True
         self.needs_reset = False
+        self._settle_until = 0.0  # timestamp until which robot stands still between episodes
+        self._fall_steps = 0      # consecutive nav steps with all-zero Fz (fall detection)
 
     def setup(self) -> None:
         self._bridge.pre_reset_setup()
@@ -268,10 +270,9 @@ class SpotGaitDataCollector:
     def _initialize(self) -> None:
         self._spot.initialize()
         self._bridge.post_reset_setup(physics_dt=self._physics_dt)
-        foot_paths = self._bridge.foot_prim_paths
-        if foot_paths:
-            self._foot_prims = [XFormPrim(p) for p in foot_paths]
-            print(f"[GaitCollector] Foot prims: {foot_paths}")
+        self._foot_prim_paths = self._bridge.foot_prim_paths
+        if self._foot_prim_paths:
+            print(f"[GaitCollector] Foot prim paths: {self._foot_prim_paths}")
         else:
             print(f"[GaitCollector] WARNING: foot prims not found.")
 
@@ -293,6 +294,18 @@ class SpotGaitDataCollector:
     def _flush_episode(self) -> None:
         if not self._step_buf or self._ep_start_time is None:
             return
+
+        # Quality filter: discard episodes where robot reached no waypoints.
+        # Zero-goal episodes mean the robot wandered without navigating — noisy
+        # data that degrades supervised IK learning.
+        if self._goals_reached == 0:
+            print(f"[Quality] Episode discarded — 0 goals reached (not saved)")
+            self._step_buf = []
+            self._waypoints_visited = []
+            self._ep_start_time = None
+            self._goals_reached = 0
+            return
+
         buf = {}
         for key in self._recorder.FIELDS:
             buf[key] = [s[key] for s in self._step_buf if key in s]
@@ -330,16 +343,25 @@ class SpotGaitDataCollector:
         return np.array([pos_command_b[0], pos_command_b[1], heading_error])
 
     def _get_foot_positions(self) -> np.ndarray:
-        if self._foot_prims is None:
+        if not self._foot_prim_paths:
             return np.zeros((4, 3), dtype=np.float32)
-        positions = []
-        for prim in self._foot_prims:
-            try:
-                pos, _ = prim.get_world_pose()
-                positions.append(pos[:3])
-            except Exception:
-                positions.append(np.zeros(3))
-        return np.array(positions, dtype=np.float32)
+        try:
+            import omni.usd
+            from pxr import UsdGeom, Usd
+            stage = omni.usd.get_context().get_stage()
+            tc = Usd.TimeCode.Default()
+            positions = []
+            for path in self._foot_prim_paths:
+                prim = stage.GetPrimAtPath(path)
+                if prim.IsValid():
+                    t = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(tc).ExtractTranslation()
+                    positions.append([t[0], t[1], t[2]])
+                else:
+                    positions.append([0.0, 0.0, 0.0])
+            return np.array(positions, dtype=np.float32)
+        except Exception as e:
+            print(f"[GaitCollector] foot position error: {e}")
+            return np.zeros((4, 3), dtype=np.float32)
 
     def _collect_gait_state(self, pos_IB, q_IB) -> dict:
         lin_vel_I  = self._spot.robot.get_linear_velocity()
@@ -355,6 +377,7 @@ class SpotGaitDataCollector:
         com_pos  = np.array(pos_IB[:3], dtype=np.float32)
         zmp      = compute_zmp(foot_positions, contact_forces)
         head_pos = com_pos.copy()
+
 
         R_IB = quat_to_rot_matrix(q_IB)
         R_BI = R_IB.T
@@ -415,19 +438,47 @@ class SpotGaitDataCollector:
             gravity_b = np.matmul(R_BI, np.array([0.0, 0.0, -1.0]))
             current_pose = self._get_robot_pose()
 
+            # ── Fall detection (collecting or not) ───────────────────────
+            # Fallen = body z < 0.3m OR all Fz=0 for 10 consecutive nav steps (~2s)
+            body_z = float(pos_IB[2])
+            fz = self._bridge.get_contact_forces()[:, 2]
+            all_zero = bool(fz.max() < 1.0)
+            if body_z < 0.3 or (all_zero and is_collecting and self._ep_start_time is not None):
+                self._fall_steps += 1
+            else:
+                self._fall_steps = 0
+
+            if self._fall_steps >= 10 and is_collecting and self._ep_start_time is not None:
+                print(f"\n[FallDetect] Robot fell (z={body_z:.2f}m, Fz={fz.round(1)}) "
+                      f"— discarding episode, resetting to spawn")
+                # Discard current episode data
+                self._step_buf = []
+                self._waypoints_visited = []
+                self._ep_start_time = None
+                self._goals_reached = 0
+                self._fall_steps = 0
+                # Teleport to spawn and stand still
+                self._reset_to_spawn()
+                self._settle_until = time.time() + 3.0
+
             if is_collecting:
                 now = time.time()
 
-                # Start episode
+                # Start episode (after settle period)
                 if self._ep_start_time is None:
-                    goal = self._wp_gen.sample(current_pose)
-                    self._current_wp = goal
-                    self._ep_start_time = now
-                    self._step_buf = []
-                    self._waypoints_visited = []
-                    self._goals_reached = 0
-                    print(f"\n[Episode {self._collection_mgr._current_episode + 1}] "
-                          f"Started → goal=({goal[0]:.2f},{goal[1]:.2f})")
+                    if now < self._settle_until:
+                        pass  # standing still, waiting to settle
+                    else:
+                        goal = self._wp_gen.sample(current_pose)
+                        self._current_wp = goal
+                        self._ep_start_time = now
+                        self._step_buf = []
+                        self._waypoints_visited = []
+                        self._goals_reached = 0
+                        print(f"\n[Episode {self._collection_mgr._current_episode + 1}] "
+                              f"spawn=({current_pose[0]:.2f},{current_pose[1]:.2f}) "
+                              f"goal=({goal[0]:.2f},{goal[1]:.2f}) "
+                              f"dist={math.hypot(goal[0]-current_pose[0], goal[1]-current_pose[1]):.2f}m")
 
                 # Episode timeout
                 elif now - self._ep_start_time >= self._collection_mgr._episode_duration:
@@ -442,16 +493,17 @@ class SpotGaitDataCollector:
                                 self._collection_mgr._num_episodes)
                         if done:
                             self._collection_mgr._collecting = False
+                            self._collection_mgr._current_episode = 0
                             print("\n[GaitCollector] All episodes collected! "
                                   "Idling — use dashboard to start new collection.")
-                            self._collection_mgr.reset_after_complete()
 
                     if not done:
-                        # Return to fixed spawn for next episode
-                        self._reset_to_spawn()
-                        goal = self._wp_gen.sample((self._spawn_pos[0], self._spawn_pos[1], 0.0))
-                        self._current_wp = goal
-                        self._ep_start_time = now
+                        # Stand still for settle period before next episode
+                        self._ep_start_time = None
+                        self._current_wp = None
+                        self._base_cmd = np.zeros(3)
+                        self._settle_until = now + 3.0
+                        print(f"[GaitCollector] Settling 3s before next episode...")
 
                 # Navigate toward current waypoint
                 if self._current_wp is not None and is_collecting:
@@ -461,11 +513,27 @@ class SpotGaitDataCollector:
                         2 * (q_IB[0] * q_IB[3] + q_IB[1] * q_IB[2]),
                         1 - 2 * (q_IB[2] ** 2 + q_IB[3] ** 2)
                     )
+                    elapsed = now - self._ep_start_time if self._ep_start_time else 0.0
+
+                    # Periodic nav log every 5000 physics steps (~10s), same cadence as ContactBridge
+                    if self._nav_counter % 5000 == 0:
+                        fz = self._bridge.get_contact_forces()[:, 2]
+                        contact = self._bridge.get_foot_in_contact()
+                        print(f"[Nav] step={self._nav_counter} t={elapsed:.1f}s  "
+                              f"pos=({pos_IB[0]:.2f},{pos_IB[1]:.2f})  "
+                              f"goal=({wx:.2f},{wy:.2f})  dist={dist:.2f}m  "
+                              f"goals={self._goals_reached}  "
+                              f"Fz={fz.round(1)}  contact={contact}")
+
                     if (dist < self._pos_thresh and
                             abs(_wrap_to_pi(yaw_curr - wyaw)) < self._yaw_thresh):
                         self._goals_reached += 1
+                        new_goal = self._wp_gen.sample(current_pose)
+                        print(f"[Nav] Goal reached! ({self._goals_reached}) "
+                              f"→ new goal=({new_goal[0]:.2f},{new_goal[1]:.2f}) "
+                              f"dist={math.hypot(new_goal[0]-current_pose[0], new_goal[1]-current_pose[1]):.2f}m")
                         self._waypoints_visited.append(list(self._current_wp))
-                        self._current_wp = self._wp_gen.sample(current_pose)
+                        self._current_wp = new_goal
 
                     pose_cmd = self._compute_pose_command(pos_IB, q_IB, self._current_wp)
                     nav_obs = np.concatenate([lin_vel_b, gravity_b, pose_cmd])
@@ -476,19 +544,27 @@ class SpotGaitDataCollector:
                         np.clip(raw_cmd[2], -2.0, 2.0),
                     ])
 
-                # Buffer gait state
+                # Collect gait state — always push to dashboard, only buffer during episode
+                gait_state = self._collect_gait_state(pos_IB, q_IB)
+                self._state_manager.push_state(gait_state)
                 if self._ep_start_time is not None:
-                    gait_state = self._collect_gait_state(pos_IB, q_IB)
                     self._step_buf.append(gait_state)
-                    self._state_manager.push_state(gait_state)
 
             else:
                 self._base_cmd = np.zeros(3)
+                # Push idle state to dashboard even when not collecting
+                gait_state = self._collect_gait_state(pos_IB, q_IB)
+                self._state_manager.push_state(gait_state)
 
         self._nav_counter += 1
 
         if is_collecting:
             self._spot.forward(step_size, self._base_cmd)
+        else:
+            # Hold default standing pose via PD controller (not direct position set)
+            self._spot.robot.apply_action(
+                ArticulationAction(joint_positions=self._spot.default_pos)
+            )
 
     def run(self) -> None:
         while simulation_app.is_running():

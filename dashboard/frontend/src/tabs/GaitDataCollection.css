@@ -321,3 +321,175 @@
 .gait-contact-pill--on {
   font-weight: 700;
 }
+
+/* ── Trajectory Monitor (new canvas layout) ───────────────────── */
+.gait-panel-trajectory-new {
+  /* inherits .panel */
+}
+
+.gait-traj-monitor-layout {
+  display: grid;
+  grid-template-columns: 60% 40%;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .gait-traj-monitor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Canvas wrapper — fixed height so canvas has a stable size */
+.gait-traj-canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.traj-canvas {
+  display: block;
+  width: 100%;
+  height: 320px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #F8F6F2;
+}
+
+/* Legend row under canvas */
+.traj-canvas-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.traj-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+}
+
+.traj-legend-swatch {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* Right column: stacked time series panels */
+.gait-traj-timeseries-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gait-traj-ts-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px 6px;
+}
+
+.gait-traj-ts-panel--contact {
+  padding: 8px 10px;
+}
+
+.gait-traj-ts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.gait-traj-ts-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.gait-traj-ts-legend {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+}
+
+/* Navigation trajectory caption */
+.gait-nav-traj-caption {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+/* ── Joint horizontal layout ─────────────────────────────────────── */
+.gait-joint-horizontal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .gait-joint-horizontal { grid-template-columns: 1fr; }
+}
+
+/* ── Stats row (ZMP / CoM / Head) ────────────────────────────────── */
+.gait-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .gait-stats-row { grid-template-columns: 1fr; }
+}
+
+/* ── Mini stats panel ────────────────────────────────────────────── */
+.gait-mini-panel {
+  /* inherits .panel */
+}
+
+.gait-stat-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.gait-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 12px;
+}
+
+.gait-stat-row:last-child {
+  border-bottom: none;
+}
+
+.gait-stat-key {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.gait-stat-val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.gait-stat-val--ok  { color: #3B6D11; }
+.gait-stat-val--warn { color: #BA7517; }
+.gait-stat-val--err  { color: #A32D2D; }
