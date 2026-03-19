@@ -1,0 +1,323 @@
+/* ================================================================
+   GaitDataCollection — styles scoped to gait tab
+   Extends the warm cream & lavender theme from App.css
+   ================================================================ */
+
+/* ── Offline Banner ─────────────────────────────────────────────── */
+.gait-offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(230, 126, 34, 0.08);
+  border: 1px solid rgba(230, 126, 34, 0.3);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: #c0792b;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.gait-offline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e67e22;
+  flex-shrink: 0;
+  animation: pulse-orange 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-orange {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ── Collecting Badge ────────────────────────────────────────────── */
+.gait-collecting-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(155, 142, 199, 0.1);
+  border: 1px solid rgba(155, 142, 199, 0.35);
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--purple);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+/* ── Controls Row ────────────────────────────────────────────────── */
+.gait-ctrl-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.gait-ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.gait-ctrl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gait-ctrl-btn--start {
+  background: linear-gradient(135deg, #9B8EC7, #7B6BAA);
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 4px 12px rgba(155, 142, 199, 0.35);
+}
+
+.gait-ctrl-btn--start:hover:not(:disabled) {
+  box-shadow: 0 4px 20px rgba(155, 142, 199, 0.5);
+  transform: translateY(-1px);
+}
+
+.gait-ctrl-btn--stop {
+  background: linear-gradient(135deg, #ef5350, #c62828);
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 4px 12px rgba(239, 83, 80, 0.3);
+  animation: stop-glow 2s ease-in-out infinite;
+}
+
+/* ── Stat Pills ──────────────────────────────────────────────────── */
+.gait-stat-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 80px;
+}
+
+.gait-stat-pill-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.gait-stat-pill-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--purple);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ── Progress Bar ────────────────────────────────────────────────── */
+.gait-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.gait-progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--cream-dark);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.gait-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9B8EC7, #7B6BAA);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.gait-progress-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Config Inputs ───────────────────────────────────────────────── */
+.gait-config-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.gait-config-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.gait-config-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.gait-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.gait-config-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.gait-config-input {
+  width: 120px;
+  padding: 10px 14px;
+  background: #FFFFFF;
+  border: 1.5px solid var(--teal);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 500;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  appearance: none;
+  -moz-appearance: textfield;
+}
+
+.gait-config-input::-webkit-inner-spin-button,
+.gait-config-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.gait-config-input:focus {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(155, 142, 199, 0.15);
+}
+
+.gait-config-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--bg-elevated);
+}
+
+/* ── Charts Layout ───────────────────────────────────────────────── */
+.gait-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.gait-charts-row--half {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .gait-charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Trajectory Panel ────────────────────────────────────────────── */
+.gait-panel-trajectory {
+  min-height: 360px;
+}
+
+.gait-traj-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gait-traj-legend-item {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.gait-foot-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.gait-foot-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.gait-foot-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+/* ── Joint Column ────────────────────────────────────────────────── */
+.gait-joint-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Contact Indicators ──────────────────────────────────────────── */
+.gait-contact-indicators {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.gait-contact-pill {
+  flex: 1;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.gait-contact-pill--on {
+  font-weight: 700;
+}

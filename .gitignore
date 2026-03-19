@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node / Frontend
+dashboard/frontend/node_modules/
+dashboard/frontend/dist/
+
+# Data (HDF5 recordings — can be large)
+data/gait_recordings/*.h5
+
+# Isaac Sim / Kit runtime
+_build/
+_compiler/
+*.log
+kit/
+
+# OS
+.DS_Store
+Thumbs.db
