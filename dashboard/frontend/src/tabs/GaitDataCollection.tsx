@@ -428,45 +428,6 @@ function CanvasTrajectory({ state, comTrail, zmpTrail }: CanvasTrajectoryProps) 
         }
       }
 
-      // ── 9. Waypoint ───────────────────────────────────────────────
-      if (s?.collection?.current_waypoint) {
-        const wp = s.collection.current_waypoint
-        const [cx, cy] = toCanvas(safeNum(wp[0]), safeNum(wp[1]))
-        const size = 9
-
-        // Ground shadow
-        ctx.beginPath()
-        ctx.ellipse(cx + 3, cy + 4, size + 3, (size + 1) * 0.45, 0, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(123,107,170,0.15)'
-        ctx.fill()
-
-        // Diamond
-        ctx.shadowColor = 'rgba(123,107,170,0.45)'
-        ctx.shadowBlur = 9
-        ctx.beginPath()
-        ctx.moveTo(cx, cy - size)
-        ctx.lineTo(cx + size, cy)
-        ctx.lineTo(cx, cy + size)
-        ctx.lineTo(cx - size, cy)
-        ctx.closePath()
-        ctx.fillStyle = '#7B6BAA'
-        ctx.fill()
-        ctx.shadowBlur = 0
-        ctx.shadowColor = 'transparent'
-
-        ctx.beginPath()
-        ctx.arc(cx, cy, size + 5, 0, Math.PI * 2)
-        ctx.setLineDash([2, 3])
-        ctx.strokeStyle = 'rgba(123,107,170,0.5)'
-        ctx.lineWidth = 1
-        ctx.stroke()
-        ctx.setLineDash([])
-
-        ctx.font = '9px monospace'
-        ctx.fillStyle = '#5A4A8A'
-        ctx.fillText('WP', cx + size + 4, cy + 3)
-      }
-
       // ── Scale bar ─────────────────────────────────────────────────
       const scaleBarPx = 1.0 * scale
       const sbX = W - scaleBarPx - 12
@@ -1332,17 +1293,6 @@ export default function GaitDataCollection() {
                 <span className="traj-legend-swatch" style={{ background: 'transparent', border: '1.5px solid #F0997B', borderRadius: '50%' }} />
                 Airborne
               </span>
-              <span className="traj-legend-item">
-                <span
-                  className="traj-legend-swatch"
-                  style={{
-                    background: '#7B6BAA',
-                    transform: 'rotate(45deg)',
-                    borderRadius: '1px',
-                  }}
-                />
-                Waypoint
-              </span>
             </div>
           </div>
 
@@ -1403,6 +1353,26 @@ export default function GaitDataCollection() {
           <span className="gait-nav-traj-caption">Episode-level path — {comTrail.length} pts</span>
         </div>
         <NavTrajectoryChart comTrail={comTrail} state={state} />
+        <div className="traj-canvas-legend" style={{ marginTop: 8 }}>
+          <span className="traj-legend-item">
+            <svg width="20" height="8" style={{ flexShrink: 0 }}>
+              <line x1="0" y1="4" x2="20" y2="4" stroke="#7AABB3" strokeWidth={1.5} strokeOpacity={0.7} />
+            </svg>
+            Episode Path
+          </span>
+          <span className="traj-legend-item">
+            <svg width="14" height="14" style={{ flexShrink: 0 }}>
+              <polygon points="7,0 14,7 7,14 0,7" fill="#7B6BAA" stroke="#2D2640" strokeWidth={1} />
+            </svg>
+            Waypoint
+          </span>
+          <span className="traj-legend-item">
+            <svg width="14" height="14" style={{ flexShrink: 0 }}>
+              <circle cx="7" cy="7" r="6" fill="#639922" stroke="white" strokeWidth={1.5} />
+            </svg>
+            Robot
+          </span>
+        </div>
       </section>
 
       {/* ── Joint Charts Row (horizontal side-by-side) ────────────────── */}
@@ -1419,13 +1389,6 @@ export default function GaitDataCollection() {
           </div>
           <JointChart history={history} showVel={true} />
         </section>
-      </div>
-
-      {/* ── Stats Row: ZMP / CoM / Head Pose ─────────────────────────── */}
-      <div className="gait-stats-row">
-        <ZmpStatsPanel state={state} history={history} />
-        <ComStatePanel state={state} history={history} />
-        <HeadPosePanel state={state} history={history} />
       </div>
 
       {/* Joint legend */}
@@ -1447,6 +1410,13 @@ export default function GaitDataCollection() {
           ))}
         </div>
       </section>
+
+      {/* ── Stats Row: ZMP / CoM / Head Pose ─────────────────────────── */}
+      <div className="gait-stats-row">
+        <ZmpStatsPanel state={state} history={history} />
+        <ComStatePanel state={state} history={history} />
+        <HeadPosePanel state={state} history={history} />
+      </div>
 
       {/* ── Episode Log ───────────────────────────────────────────────── */}
       <section className="panel panel--wide">

@@ -220,10 +220,10 @@ class SpotGaitDataCollector:
 
         # Arena bounds for goal sampling
         self._arena_bounds = {
-            "x_min": config.get("arena_x_min", -35.0),
+            "x_min": config.get("arena_x_min", -25.0),
             "x_max": config.get("arena_x_max",   4.0),
-            "y_min": config.get("arena_y_min", -25.0),
-            "y_max": config.get("arena_y_max",  28.0),
+            "y_min": config.get("arena_y_min", -22.0),
+            "y_max": config.get("arena_y_max",   7.5),
         }
 
         # State bridge & recorder
@@ -275,6 +275,73 @@ class SpotGaitDataCollector:
             print(f"[GaitCollector] Foot prim paths: {self._foot_prim_paths}")
         else:
             print(f"[GaitCollector] WARNING: foot prims not found.")
+        self._setup_waypoint_marker()
+
+    def _setup_waypoint_marker(self) -> None:
+        """Create a downward-pointing arrow marker prim for waypoint visualization."""
+        self._marker_prim_path = None
+        try:
+            import omni.usd
+            from pxr import UsdGeom, Gf
+            stage = omni.usd.get_context().get_stage()
+
+            root_path = "/World/WaypointMarker"
+            # Remove stale prim if present (e.g. after world.reset)
+            if stage.GetPrimAtPath(root_path).IsValid():
+                stage.RemovePrim(root_path)
+
+            # Root xform — we translate this to move the whole marker
+            root = stage.DefinePrim(root_path, "Xform")
+
+            # Vertical shaft (cylinder) centered at origin
+            shaft = UsdGeom.Cylinder.Define(stage, root_path + "/Shaft")
+            shaft.GetRadiusAttr().Set(0.04)
+            shaft.GetHeightAttr().Set(0.9)
+            shaft.GetDisplayColorAttr().Set([Gf.Vec3f(1.0, 0.45, 0.0)])
+            shaft_xf = UsdGeom.Xformable(shaft.GetPrim())
+            shaft_xf.ClearXformOpOrder()
+            shaft_xf.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, 0.0))
+
+            # Cone head pointing downward (at the bottom of the shaft)
+            cone = UsdGeom.Cone.Define(stage, root_path + "/Head")
+            cone.GetRadiusAttr().Set(0.22)
+            cone.GetHeightAttr().Set(0.5)
+            cone.GetDisplayColorAttr().Set([Gf.Vec3f(1.0, 0.25, 0.0)])
+            cone_xf = UsdGeom.Xformable(cone.GetPrim())
+            cone_xf.ClearXformOpOrder()
+            # Translate to bottom of shaft, then rotate 180° around X so tip points down
+            cone_xf.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, -0.7))
+            cone_xf.AddRotateXOp().Set(180.0)
+
+            # Start invisible
+            UsdGeom.Imageable(root).MakeInvisible()
+
+            self._marker_prim_path = root_path
+            print("[GaitCollector] Waypoint marker prim created at", root_path)
+        except Exception as e:
+            print(f"[GaitCollector] Waypoint marker setup failed: {e}")
+
+    def _update_waypoint_marker(self, wp) -> None:
+        """Move the marker to the waypoint XY position, or hide if no waypoint."""
+        if not self._marker_prim_path:
+            return
+        try:
+            import omni.usd
+            from pxr import UsdGeom, Gf
+            stage = omni.usd.get_context().get_stage()
+            prim = stage.GetPrimAtPath(self._marker_prim_path)
+            if not prim.IsValid():
+                return
+            if wp is None:
+                UsdGeom.Imageable(prim).MakeInvisible()
+                return
+            xf = UsdGeom.Xformable(prim)
+            xf.ClearXformOpOrder()
+            # Elevate 1.5m above ground so cone tip is visible from above
+            xf.AddTranslateOp().Set(Gf.Vec3d(float(wp[0]), float(wp[1]), 1.5))
+            UsdGeom.Imageable(prim).MakeVisible()
+        except Exception as e:
+            print(f"[GaitCollector] Marker update failed: {e}")
 
     def _reset_to_spawn(self) -> None:
         """Teleport robot back to fixed spawn position without world.reset()."""
@@ -286,6 +353,7 @@ class SpotGaitDataCollector:
         self._spot.robot.set_joint_velocities(np.zeros(n_dof))
         self._base_cmd    = np.zeros(3)
         self._current_wp  = None
+        self._update_waypoint_marker(None)
         self._goals_reached = 0
         self._step_buf    = []
         self._waypoints_visited = []
@@ -471,6 +539,7 @@ class SpotGaitDataCollector:
                     else:
                         goal = self._wp_gen.sample(current_pose)
                         self._current_wp = goal
+                        self._update_waypoint_marker(goal)
                         self._ep_start_time = now
                         self._step_buf = []
                         self._waypoints_visited = []
@@ -501,6 +570,7 @@ class SpotGaitDataCollector:
                         # Stand still for settle period before next episode
                         self._ep_start_time = None
                         self._current_wp = None
+                        self._update_waypoint_marker(None)
                         self._base_cmd = np.zeros(3)
                         self._settle_until = now + 3.0
                         print(f"[GaitCollector] Settling 3s before next episode...")
@@ -534,6 +604,7 @@ class SpotGaitDataCollector:
                               f"dist={math.hypot(new_goal[0]-current_pose[0], new_goal[1]-current_pose[1]):.2f}m")
                         self._waypoints_visited.append(list(self._current_wp))
                         self._current_wp = new_goal
+                        self._update_waypoint_marker(new_goal)
 
                     pose_cmd = self._compute_pose_command(pos_IB, q_IB, self._current_wp)
                     nav_obs = np.concatenate([lin_vel_b, gravity_b, pose_cmd])
