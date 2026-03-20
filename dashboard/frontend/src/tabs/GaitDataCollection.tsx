@@ -79,8 +79,13 @@ function formatDuration(secs: number): string {
 }
 
 function formatTime(isoStr: string): string {
+  if (!isoStr) return '-'
+  // Backend sends "HH:MM:SS" directly — return as-is
+  if (/^\d{2}:\d{2}:\d{2}$/.test(isoStr)) return isoStr
   try {
-    return new Date(isoStr).toLocaleTimeString('en-US', { hour12: false })
+    const d = new Date(isoStr)
+    if (isNaN(d.getTime())) return isoStr
+    return d.toLocaleTimeString('en-US', { hour12: false })
   } catch {
     return isoStr
   }
@@ -674,9 +679,9 @@ function NavTrajectoryChart({ comTrail, state }: NavTrajectoryProps) {
           isAnimationActive={false}
         />
 
-        {/* Current waypoint */}
+        {/* Current goal position */}
         <Scatter
-          name="Waypoint"
+          name="Goal Position"
           data={waypointData}
           isAnimationActive={false}
           shape={(props: { cx?: number; cy?: number }) => {
@@ -1364,7 +1369,7 @@ export default function GaitDataCollection() {
             <svg width="14" height="14" style={{ flexShrink: 0 }}>
               <polygon points="7,0 14,7 7,14 0,7" fill="#7B6BAA" stroke="#2D2640" strokeWidth={1} />
             </svg>
-            Waypoint
+            Goal Position
           </span>
           <span className="traj-legend-item">
             <svg width="14" height="14" style={{ flexShrink: 0 }}>

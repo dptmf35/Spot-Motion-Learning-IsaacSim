@@ -563,8 +563,13 @@ class SpotGaitDataCollector:
                         if done:
                             self._collection_mgr._collecting = False
                             self._collection_mgr._current_episode = 0
+                            self._ep_start_time = None
+                            self._current_wp = None
+                            self._update_waypoint_marker(None)
+                            self._base_cmd = np.zeros(3)
+                            self._settle_until = now + 3.0
                             print("\n[GaitCollector] All episodes collected! "
-                                  "Idling — use dashboard to start new collection.")
+                                  "Settling 3s then idling — use dashboard to start new collection.")
 
                     if not done:
                         # Stand still for settle period before next episode
@@ -629,10 +634,11 @@ class SpotGaitDataCollector:
 
         self._nav_counter += 1
 
-        if is_collecting:
+        if is_collecting or time.time() < self._settle_until:
+            # During collection OR settle-down period: use policy with zero cmd to stand gracefully
             self._spot.forward(step_size, self._base_cmd)
         else:
-            # Hold default standing pose via PD controller (not direct position set)
+            # Fully idle: hold default standing pose via PD controller
             self._spot.robot.apply_action(
                 ArticulationAction(joint_positions=self._spot.default_pos)
             )
@@ -656,12 +662,12 @@ def main():
                         help="Fixed spawn X position (default: -8.0)")
     parser.add_argument("--spawn-y",   type=float, default=4.0,
                         help="Fixed spawn Y position (default: 4.0)")
-    parser.add_argument("--spawn-yaw", type=float, default=0.0,
-                        help="Fixed spawn yaw in radians (default: 0.0)")
-    parser.add_argument("--arena-x-min", type=float, default=-35.0)
+    parser.add_argument("--spawn-yaw", type=float, default=-1.5708,
+                        help="Fixed spawn yaw in radians (default: -1.5708 = -90 deg)")
+    parser.add_argument("--arena-x-min", type=float, default=-25.0)
     parser.add_argument("--arena-x-max", type=float, default=4.0)
-    parser.add_argument("--arena-y-min", type=float, default=-25.0)
-    parser.add_argument("--arena-y-max", type=float, default=28.0)
+    parser.add_argument("--arena-y-min", type=float, default=-22.0)
+    parser.add_argument("--arena-y-max", type=float, default=7.5)
     parser.add_argument("--min-goal-dist", type=float, default=2.0)
     parser.add_argument("--max-goal-dist", type=float, default=15.0)
     parser.add_argument("--pos-thresh",    type=float, default=0.5)
